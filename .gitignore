@@ -1,0 +1,16 @@
+node_modules
+dist
+
+# Rust / Cargo
+target
+**/target
+Cargo.lock
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# macOS / editor noise
+.DS_Store
+.vscode

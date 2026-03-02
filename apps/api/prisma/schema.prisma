@@ -1,0 +1,239 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Auth & Merchants ─────────────────────────────────────────
+
+model Merchant {
+  id                String        @id @default(cuid())
+  name              String
+  email             String        @unique
+  passwordHash      String
+  apiKeyHash        String?       @unique
+  webhookUrl        String?
+  webhookSecret     String?
+  settlementAsset   String        @default("USDC")
+  settlementAddress String? // Stellar G... address OR EVM 0x...
+  settlementChain   String        @default("stellar")
+  kybStatus         KybStatus     @default(PENDING)
+  feeBps            Int           @default(50) // 0.5%
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  payments          Payment[]
+  payouts           Payout[]
+  invoices          Invoice[]
+  paymentLinks      PaymentLink[]
+  teamMembers       TeamMember[]
+}
+
+model TeamMember {
+  id         String   @id @default(cuid())
+  merchantId String
+  email      String
+  role       TeamRole
+  merchant   Merchant @relation(fields: [merchantId], references: [id])
+}
+
+enum KybStatus {
+  PENDING
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  DEVELOPER
+  FINANCE
+  VIEWER
+}
+
+// ── Quotes ───────────────────────────────────────────────────
+
+model Quote {
+  id          String   @id @default(cuid())
+  fromChain   String
+  fromAsset   String
+  fromAmount  Decimal  @db.Decimal(36, 18)
+  toChain     String
+  toAsset     String
+  toAmount    Decimal  @db.Decimal(36, 18)
+  rate        Decimal  @db.Decimal(36, 18)
+  feeBps      Int
+  feeAmount   Decimal  @db.Decimal(36, 18)
+  stellarPath Json? // path payment hops
+  bridgeRoute String? // "cctp" | "wormhole" | "layerswap"
+  lockedAt    DateTime @default(now())
+  expiresAt   DateTime // lockedAt + 30s
+  used        Boolean  @default(false)
+  payment     Payment?
+}
+
+// ── Payments ─────────────────────────────────────────────────
+
+model Payment {
+  id             String         @id @default(cuid())
+  merchantId     String
+  quoteId        String         @unique
+  status         PaymentStatus  @default(PENDING)
+  // Source side
+  sourceChain    String
+  sourceAsset    String
+  sourceAmount   Decimal        @db.Decimal(36, 18)
+  sourceAddress  String? // payer wallet address
+  sourceLockId   String? // HTLC lock ID on source chain
+  sourceTxHash   String?
+  // Settlement side
+  stellarLockId  String? // Soroban HTLC lock ID
+  stellarTxHash  String?
+  // Destination side
+  destChain      String
+  destAsset      String
+  destAmount     Decimal        @db.Decimal(36, 18)
+  destAddress    String // merchant receiving address
+  destTxHash     String?
+  // HTLC fields
+  hashlock       String? // sha256 of secret
+  secretRevealed Boolean        @default(false)
+  // Metadata
+  metadata       Json?
+  refundedAt     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  merchant       Merchant       @relation(fields: [merchantId], references: [id])
+  quote          Quote          @relation(fields: [quoteId], references: [id])
+  webhookEvents  WebhookEvent[]
+}
+
+enum PaymentStatus {
+  PENDING
+  QUOTE_LOCKED
+  SOURCE_LOCKED
+  STELLAR_LOCKED
+  PROCESSING
+  COMPLETED
+  REFUNDING
+  REFUNDED
+  EXPIRED
+  FAILED
+}
+
+// ── Payment Links ─────────────────────────────────────────────
+
+model PaymentLink {
+  id          String    @id @default(cuid())
+  merchantId  String
+  amount      Decimal?  @db.Decimal(36, 18) // null = open amount
+  currency    String    @default("USD")
+  description String?
+  singleUse   Boolean   @default(false)
+  usedCount   Int       @default(0)
+  expiresAt   DateTime?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  merchant    Merchant  @relation(fields: [merchantId], references: [id])
+}
+
+// ── Invoices ──────────────────────────────────────────────────
+
+model Invoice {
+  id            String        @id @default(cuid())
+  merchantId    String
+  customerEmail String
+  customerName  String?
+  lineItems     Json // [{description, qty, unitPrice}]
+  subtotal      Decimal       @db.Decimal(36, 18)
+  taxRate       Decimal?      @db.Decimal(5, 4)
+  taxAmount     Decimal?      @db.Decimal(36, 18)
+  discount      Decimal?      @db.Decimal(36, 18)
+  total         Decimal       @db.Decimal(36, 18)
+  currency      String        @default("USD")
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime?
+  pdfUrl        String?
+  paidAt        DateTime?
+  paymentId     String?
+  createdAt     DateTime      @default(now())
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ── Payouts ───────────────────────────────────────────────────
+
+model Payout {
+  id              String       @id @default(cuid())
+  merchantId      String
+  recipientName   String
+  destinationType DestType
+  destination     Json // {type, account, routing, ...}
+  amount          Decimal      @db.Decimal(36, 18)
+  currency        String
+  status          PayoutStatus @default(PENDING)
+  stellarTxHash   String?
+  scheduledAt     DateTime?
+  completedAt     DateTime?
+  failureReason   String?
+  batchId         String?
+  createdAt       DateTime     @default(now())
+  merchant        Merchant     @relation(fields: [merchantId], references: [id])
+}
+
+enum DestType {
+  BANK_ACCOUNT
+  MOBILE_MONEY
+  CRYPTO_WALLET
+  STELLAR
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ── Webhooks ──────────────────────────────────────────────────
+
+model WebhookEvent {
+  id            String        @id @default(cuid())
+  merchantId    String
+  paymentId     String?
+  eventType     String // "payment.completed" etc.
+  payload       Json
+  status        WebhookStatus @default(PENDING)
+  attempts      Int           @default(0)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  createdAt     DateTime      @default(now())
+  payment       Payment?      @relation(fields: [paymentId], references: [id])
+}
+
+enum WebhookStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  EXHAUSTED
+}
