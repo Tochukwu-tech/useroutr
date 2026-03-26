@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RedisModule } from '@nestjs-modules/ioredis';
-import { BullModule } from '@nestjs/bullmq/dist/bull.module';
+import { BullModule } from '@nestjs/bullmq';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -18,9 +18,11 @@ import { RampModule } from './modules/ramp/ramp.module';
 import { RelayModule } from './modules/relay/relay.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { PrismaModule } from './modules/prisma/prisma.module';
 
 @Module({
   imports: [
+    PrismaModule,
     AuthModule,
     RedisModule.forRoot({
       type: 'single',
