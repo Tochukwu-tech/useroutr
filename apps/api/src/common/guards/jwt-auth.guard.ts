@@ -1,7 +1,12 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_ROUTE } from '../decorators/public-route.decorator.js';
+import type { Merchant } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -20,5 +25,23 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     return super.canActivate(context) as boolean | Promise<boolean>;
+  }
+
+  handleRequest<T = Merchant>(
+    err: Error | null,
+    user: T | false,
+    _info: unknown, // eslint-disable-line @typescript-eslint/no-unused-vars
+  ): T {
+    if (err || !user) {
+      throw (
+        err ??
+        new UnauthorizedException({
+          code: 'unauthorized',
+          message: 'Invalid or missing JWT',
+          docs: 'https://docs.useroutr.io/errors/unauthorized',
+        })
+      );
+    }
+    return user;
   }
 }

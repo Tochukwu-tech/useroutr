@@ -32,13 +32,21 @@ export class ApiKeyGuard implements CanActivate {
     const authHeader: string | undefined = request.headers['authorization'];
 
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing API key');
+      throw new UnauthorizedException({
+        code: 'unauthorized',
+        message: 'Missing API key',
+        docs: 'https://docs.useroutr.io/errors/unauthorized',
+      });
     }
 
     const apiKey: string = authHeader.slice(7);
 
     if (!apiKey.startsWith('ur_live_') && !apiKey.startsWith('ur_test_')) {
-      throw new UnauthorizedException('Invalid API key format');
+      throw new UnauthorizedException({
+        code: 'unauthorized',
+        message: 'Invalid API key format',
+        docs: 'https://docs.useroutr.io/errors/unauthorized',
+      });
     }
 
     const merchants = await this.prisma.merchant.findMany({
@@ -57,7 +65,11 @@ export class ApiKeyGuard implements CanActivate {
           });
 
         if (!fullMerchant) {
-          throw new UnauthorizedException('Merchant not found');
+          throw new UnauthorizedException({
+            code: 'unauthorized',
+            message: 'Merchant not found',
+            docs: 'https://docs.useroutr.io/errors/unauthorized',
+          });
         }
 
         request.user = fullMerchant;
@@ -65,6 +77,10 @@ export class ApiKeyGuard implements CanActivate {
       }
     }
 
-    throw new UnauthorizedException('Invalid API key');
+    throw new UnauthorizedException({
+      code: 'unauthorized',
+      message: 'Invalid or missing API key',
+      docs: 'https://docs.useroutr.io/errors/unauthorized',
+    });
   }
 }
