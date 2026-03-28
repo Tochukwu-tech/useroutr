@@ -3,13 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { KybStatus, TeamRole } from '../../../generated/prisma/client.js';
-import { UpdateMerchantDto } from './dto/update-merchant.dto.js';
-import { SettlementDto } from './dto/settlement.dto.js';
-import { BrandingDto } from './dto/branding.dto.js';
-import { InviteMemberDto } from './dto/invite-member.dto.js';
-import { KybSubmissionDto } from './dto/kyb-submission.dto.js';
+import { PrismaService } from '../prisma/prisma.service';
+import { KybStatus, Merchant, TeamRole } from '../../../generated/prisma/client';
+import { UpdateMerchantDto } from './dto/update-merchant.dto';
+import { SettlementDto } from './dto/settlement.dto';
+import { BrandingDto } from './dto/branding.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { KybSubmissionDto } from './dto/kyb-submission.dto';
 import { detectAddressChain } from '@tavvio/types';
 
 @Injectable()
@@ -28,8 +28,7 @@ export class MerchantService {
       throw new NotFoundException('Merchant not found');
     }
 
-    const { passwordHash, apiKeyHash, ...profile } = merchant;
-    return profile;
+    return this.sanitize(merchant);
   }
 
   async update(id: string, dto: UpdateMerchantDto) {
@@ -43,8 +42,7 @@ export class MerchantService {
       },
     });
 
-    const { passwordHash, apiKeyHash, ...profile } = merchant;
-    return profile;
+    return this.sanitize(merchant);
   }
 
   // ── Settlement Config ────────────────────────────────────────
@@ -85,8 +83,7 @@ export class MerchantService {
       },
     });
 
-    const { passwordHash, apiKeyHash, ...profile } = merchant;
-    return profile;
+    return this.sanitize(merchant);
   }
 
   // ── Branding ─────────────────────────────────────────────────
@@ -105,8 +102,7 @@ export class MerchantService {
       },
     });
 
-    const { passwordHash, apiKeyHash, ...profile } = merchant;
-    return profile;
+    return this.sanitize(merchant);
   }
 
   // ── Team Management ──────────────────────────────────────────
@@ -212,16 +208,30 @@ export class MerchantService {
       );
     }
 
-    // Store KYB data as metadata (in production, send to KYB provider)
-    await this.prisma.merchant.update({
+    // Store KYB data and update status
+    const updated = await this.prisma.merchant.update({
       where: { id: merchantId },
-      data: { kybStatus: KybStatus.SUBMITTED },
+      data: {
+        kybStatus: KybStatus.SUBMITTED,
+        kybData: {
+          businessType: dto.businessType,
+          registrationNumber: dto.registrationNumber,
+          country: dto.country,
+          documents: dto.documents ?? [],
+          submittedAt: new Date().toISOString(),
+        },
+      },
     });
 
-    // TODO: integrate with KYB provider and store submission details
+    return { kybStatus: updated.kybStatus };
   }
 
   // ── Helpers ──────────────────────────────────────────────────
+
+  private sanitize(merchant: Merchant & Record<string, any>) {
+    const { passwordHash, apiKeyHash, ...profile } = merchant;
+    return profile;
+  }
 
   private async ensureExists(id: string) {
     const merchant = await this.prisma.merchant.findUnique({

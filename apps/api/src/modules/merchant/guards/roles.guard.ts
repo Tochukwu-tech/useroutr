@@ -5,9 +5,9 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { TeamRole } from '../../../../generated/prisma/client.js';
-import { ROLES_KEY } from '../decorators/roles.decorator.js';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import { TeamRole } from '../../../../generated/prisma/client';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -43,16 +43,21 @@ export class RolesGuard implements CanActivate {
     });
 
     if (!teamMember) {
-      // If the user is the merchant themselves, treat as OWNER
+      // If the user is the merchant themselves, treat as OWNER (full access)
       const merchant = await this.prisma.merchant.findUnique({
         where: { id: merchantId },
       });
 
       if (merchant && merchant.email === request.user.email) {
-        return requiredRoles.includes(TeamRole.OWNER);
+        return true;
       }
 
       throw new ForbiddenException('Not a member of this merchant');
+    }
+
+    // OWNER role implicitly has all permissions
+    if (teamMember.role === TeamRole.OWNER) {
+      return true;
     }
 
     if (!requiredRoles.includes(teamMember.role)) {

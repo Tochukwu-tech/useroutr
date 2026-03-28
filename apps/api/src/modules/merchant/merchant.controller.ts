@@ -10,17 +10,18 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { TeamRole } from '../../../generated/prisma/client.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
-import { CurrentMerchant } from './decorators/current-merchant.decorator.js';
-import { Roles } from './decorators/roles.decorator.js';
-import { BrandingDto } from './dto/branding.dto.js';
-import { InviteMemberDto } from './dto/invite-member.dto.js';
-import { KybSubmissionDto } from './dto/kyb-submission.dto.js';
-import { SettlementDto } from './dto/settlement.dto.js';
-import { UpdateMerchantDto } from './dto/update-merchant.dto.js';
-import { RolesGuard } from './guards/roles.guard.js';
-import { MerchantService } from './merchant.service.js';
+import { TeamRole } from '../../../generated/prisma/client';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentMerchant } from './decorators/current-merchant.decorator';
+import { Roles } from './decorators/roles.decorator';
+import { BrandingDto } from './dto/branding.dto';
+import { InviteMemberDto } from './dto/invite-member.dto';
+import { KybSubmissionDto } from './dto/kyb-submission.dto';
+import { SettlementDto } from './dto/settlement.dto';
+import { UpdateMerchantDto } from './dto/update-merchant.dto';
+import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
+import { RolesGuard } from './guards/roles.guard';
+import { MerchantService } from './merchant.service';
 
 @Controller('merchants')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -83,9 +84,9 @@ export class MerchantController {
   updateMemberRole(
     @CurrentMerchant('id') merchantId: string,
     @Param('id') memberId: string,
-    @Body('role') role: TeamRole,
+    @Body() dto: UpdateMemberRoleDto,
   ) {
-    return this.merchantService.updateMemberRole(merchantId, memberId, role);
+    return this.merchantService.updateMemberRole(merchantId, memberId, dto.role);
   }
 
   @Delete('me/team/:id')
