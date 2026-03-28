@@ -26,14 +26,13 @@ export type LinkStatus = 'active' | 'expired' | 'deactivated';
 
 export interface PaymentLink {
 	id: string;
-	name: string;
 	amount?: number;
 	currency: string;
 	description?: string;
 	type: LinkType;
 	status: LinkStatus;
 	usageCount: number;
-	expiryDate?: string;
+	expiresAt?: string;
 	url: string;
 	createdAt: string;
 	updatedAt: string;
@@ -45,13 +44,13 @@ export interface PaymentLinkStats {
 	lastPaymentAt?: string;
 }
 
+// Matches backend CreateLinkDto
 export interface CreatePaymentLinkInput {
-	name: string;
 	amount?: number;
 	currency?: string;
 	description?: string;
-	type: LinkType;
-	expiryDate?: string;
+	single_use?: boolean;
+	expires_at?: string;
 }
 
 export interface PaymentLinksResponse {
