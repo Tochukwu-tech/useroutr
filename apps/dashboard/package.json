@@ -24,8 +24,8 @@
     "@phosphor-icons/react": "^2",
     "date-fns": "^3",
     "framer-motion": "^11",
-    "@tavvio/types": "*",
-    "@tavvio/ui": "*"
+    "@tavvio/types": "workspace:*",
+    "@tavvio/ui": "workspace:*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
