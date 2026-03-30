@@ -16,3 +16,4 @@ Cargo.lock
 .vscode
 
 pnpm-workspace.yaml
+pnpm-lock.yaml
