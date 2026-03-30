@@ -1,9 +1,11 @@
-import { ConfirmPageClient } from "@/components/ConfirmPageClient";
+import { ConfirmStatusCard } from "@/components/ConfirmStatusCard";
 
-export default function ConfirmPage({
+export default async function ConfirmPage({
   params,
 }: {
   params: Promise<{ paymentId: string }>;
 }) {
-  return <ConfirmPageClient params={params} />;
+  const { paymentId } = await params;
+
+  return <ConfirmStatusCard paymentId={paymentId} />;
 }

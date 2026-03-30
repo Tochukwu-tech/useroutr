@@ -15,30 +15,31 @@ datasource db {
 // ── Auth & Merchants ─────────────────────────────────────────
 
 model Merchant {
-  id                String        @id @default(cuid())
+  id                String         @id @default(cuid())
   name              String
-  email             String        @unique
+  email             String         @unique
   passwordHash      String
-  apiKeyHash        String?       @unique
+  apiKeyHash        String?        @unique
   webhookUrl        String?
   webhookSecret     String?
-  settlementAsset   String        @default("USDC")
+  settlementAsset   String         @default("USDC")
   settlementAddress String? // Stellar G... address OR EVM 0x...
-  settlementChain   String        @default("stellar")
-  kybStatus         KybStatus     @default(PENDING)
+  settlementChain   String         @default("stellar")
+  kybStatus         KybStatus      @default(PENDING)
   kybData           Json?
-  feeBps            Int           @default(50) // 0.5%
+  feeBps            Int            @default(50) // 0.5%
   logoUrl           String?
   brandColor        String?
   customDomain      String?
   companyName       String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
   payments          Payment[]
   payouts           Payout[]
   invoices          Invoice[]
   paymentLinks      PaymentLink[]
   teamMembers       TeamMember[]
+  webhookEvents     WebhookEvent[]
 }
 
 model TeamMember {
@@ -116,6 +117,7 @@ model Payment {
   idempotencyKey String?        @unique
   // Metadata
   metadata       Json?
+  linkId         String?
   refundedAt     DateTime?
   completedAt    DateTime?
   expiresAt      DateTime?
@@ -124,10 +126,13 @@ model Payment {
   merchant       Merchant       @relation(fields: [merchantId], references: [id])
   quote          Quote          @relation(fields: [quoteId], references: [id])
   webhookEvents  WebhookEvent[]
+  paymentLink    PaymentLink?   @relation("LinkPayments", fields: [linkId], references: [id])
+  bankSession    BankSession?
 }
 
 enum PaymentStatus {
   PENDING
+  AWAITING_CONFIRMATION
   QUOTE_LOCKED
   SOURCE_LOCKED
   STELLAR_LOCKED
@@ -139,19 +144,51 @@ enum PaymentStatus {
   FAILED
 }
 
+enum BankTransferType {
+  ACH
+  SEPA
+  LOCAL
+}
+
+model BankSession {
+  id            String           @id @default(cuid())
+  paymentId     String           @unique
+  reference     String           @unique
+  type          BankTransferType
+  bankName      String
+  accountNumber String
+  routingNumber String?
+  iban          String?
+  bic           String?
+  branchCode    String?
+  amount        Decimal          @db.Decimal(36, 18)
+  currency      String
+  instructions  String
+  expiresAt     DateTime
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  payment       Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
 // ── Payment Links ─────────────────────────────────────────────
 
 model PaymentLink {
   id          String    @id @default(cuid())
   merchantId  String
+  shortCode   String    @unique
   amount      Decimal?  @db.Decimal(36, 18) // null = open amount
   currency    String    @default("USD")
   description String?
   singleUse   Boolean   @default(false)
   usedCount   Int       @default(0)
+  viewCount   Int       @default(0)
+  qrCodeUrl   String?
   expiresAt   DateTime?
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
+  payments    Payment[] @relation("LinkPayments")
   merchant    Merchant  @relation(fields: [merchantId], references: [id])
 }
 
@@ -236,6 +273,7 @@ model WebhookEvent {
   lastAttemptAt DateTime?
   nextRetryAt   DateTime?
   createdAt     DateTime      @default(now())
+  merchant      Merchant      @relation(fields: [merchantId], references: [id])
   payment       Payment?      @relation(fields: [paymentId], references: [id])
 }
 
